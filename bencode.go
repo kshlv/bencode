@@ -30,11 +30,11 @@ const stringSeparator = ':'
 func ReadString(r *bufio.Reader) (string, error) {
 	l, err := r.ReadBytes(stringSeparator)
 	if err != nil {
-		return "", err
+		return "", ErrStringInvalid
 	}
 	length, err := strconv.Atoi(string(l[:len(l)-1]))
 	if err != nil {
-		return "", err
+		return "", ErrStringInvalid
 	}
 	if length < 0 {
 		return "", ErrStringInvalid
@@ -44,7 +44,7 @@ func ReadString(r *bufio.Reader) (string, error) {
 	for i := 0; i < length; i++ {
 		b, err := r.ReadByte()
 		if err != nil {
-			return "", err
+			return "", ErrStringInvalid
 		}
 		bs = append(bs, b)
 	}
@@ -64,10 +64,9 @@ func ReadInt(r *bufio.Reader) (int, error) {
 	if b, _ := r.ReadByte(); b != 'i' {
 		return 0, ErrIntInvalid
 	}
-
 	b, err := r.ReadBytes('e')
 	if err != nil {
-		return 0, err
+		return 0, ErrIntInvalid
 	}
 	i, err := strconv.Atoi(string(b[:len(b)-1]))
 	if err != nil {
@@ -159,6 +158,9 @@ func ReadDictionary(r *bufio.Reader) (map[string]interface{}, error) {
 
 	for {
 		next, err := r.Peek(1)
+		if err != nil {
+			return nil, err
+		}
 		if next[0] == 'e' {
 			_, _ = r.ReadByte()
 			break
@@ -175,23 +177,21 @@ func ReadDictionary(r *bufio.Reader) (map[string]interface{}, error) {
 		}
 
 		var v interface{}
-		switch next[0] {
-		/*
-			case 'e':
-				_, _ = r.ReadByte()
-				break*/
-		case 'd':
-			v, err = ReadDictionary(r)
-		case 'i':
-			v, err = ReadInt(r)
-		case 'l':
-			v, err = ReadList(r)
-		default:
-			v, err = ReadString(r)
-		}
+		if next[0] != 'e' {
+			switch next[0] {
+			case 'd':
+				v, err = ReadDictionary(r)
+			case 'i':
+				v, err = ReadInt(r)
+			case 'l':
+				v, err = ReadList(r)
+			default:
+				v, err = ReadString(r)
+			}
 
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		d[k] = v
